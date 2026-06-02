@@ -6,7 +6,6 @@ import initialDatabase from './data/mockDatabase';
 import HomeView from './views/HomeView';
 import ProductGrid from './views/ProductGrid';
 import CombinationsView from './views/CombinationsView';
-import AdminView from './views/AdminView';
 import CartView from './views/CartView';
 import CheckoutView from './views/CheckoutView';
 import OrderConfirmationView from './views/OrderConfirmationView';
@@ -82,7 +81,6 @@ export default function App() {
               { id: 'pants', icon: Layers, label: 'Pants' },
               { id: 'combinations', icon: ShoppingBag, label: 'Pairs' },
               { id: 'cart', icon: ShoppingCart, label: 'Cart' },
-              { id: 'admin', icon: Settings, label: 'Data Update' },
             ].map(item => (
               <button 
                 key={item.id}
@@ -130,7 +128,6 @@ export default function App() {
                 {view === 'cart' && <CartView cart={cart} setCart={setCart} navigate={handleNavigate} />}
                 {view === 'checkout' && <CheckoutView cart={cart} setCart={setCart} navigate={handleNavigate} />}
                 {view === 'confirmation' && <OrderConfirmationView navigate={handleNavigate} />}
-                {view === 'admin' && <AdminView db={db} setDb={setDb} />}
               </>
             )}
           </div>
