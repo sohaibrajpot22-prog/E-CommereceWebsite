@@ -7,16 +7,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'esbuild',
+    minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor';
-          }
-          if (id.includes('node_modules/lucide-react')) {
-            return 'lucide';
-          }
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'lucide': ['lucide-react'],
         }
       }
     }

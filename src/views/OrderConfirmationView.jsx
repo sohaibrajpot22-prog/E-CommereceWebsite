@@ -61,7 +61,7 @@ const OrderConfirmationView = ({ navigate }) => {
           <div className="flex justify-center">
             <CheckCircle size={80} className="text-teal-400 animate-bounce" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold">Order Confirmed!</h1>
+          <h1 className="text-3xl sm:text-5xl font-bold">Order Confirmed!</h1>
           <p className="text-xl text-white/70">Thank you for your order</p>
         </div>
       </FadeIn>

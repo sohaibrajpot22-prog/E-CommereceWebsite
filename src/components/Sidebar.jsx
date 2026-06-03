@@ -1,43 +1,44 @@
 import React from 'react';
-import { X, Home, ShoppingBag, Layers, Settings } from 'lucide-react';
+import { X, Home, ShoppingBag, Layers, Moon, Sun } from 'lucide-react';
 
-export const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate }) => {
+const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, toggleTheme }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'shirts', icon: Layers, label: 'Shirts' },
     { id: 'pants', icon: Layers, label: 'Pants' },
     { id: 'combinations', icon: ShoppingBag, label: 'Pairs' },
-    { id: 'admin', icon: Settings, label: 'Data Update' },
+    { id: 'cart', icon: ShoppingBag, label: 'Cart' },
   ];
 
   return (
     <aside className={`
-      fixed top-0 left-0 h-full z-50 glass-panel border-r border-white/10
-      transition-all duration-500 ease-in-out
-      flex flex-col py-8 group
+      group 
+      fixed top-0 left-0 h-full z-50 glass-panel border-r border-[var(--glass-border)]
+      transition-all duration-500 ease-in-out text-[var(--text-main)]
+      flex flex-col py-8 overflow-hidden
       ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full lg:w-20 lg:translate-x-0 lg:hover:w-64'}
     `}>
       <div className="flex items-center justify-between px-6 mb-12">
-        <div className={`font-bold text-2xl tracking-wider truncate transition-opacity duration-300 ${!isSidebarOpen && 'lg:opacity-0 lg:hidden'}`}>
+        <div className={`font-bold text-2xl tracking-wider truncate transition-opacity duration-300 ${!isSidebarOpen ? 'lg:opacity-0 lg:hidden lg:group-hover:opacity-100 lg:group-hover:block' : ''}`}>
           GLASS
         </div>
-        <button className="lg:hidden text-white" onClick={() => setSidebarOpen(false)}>
+        <button className="lg:hidden hover:text-teal-400 transition-colors" onClick={() => setSidebarOpen(false)}>
           <X size={24} />
         </button>
       </div>
 
-      <nav className="flex flex-col gap-4 px-4 overflow-hidden w-full">
+      <nav className="flex flex-col gap-4 px-4 overflow-hidden w-full flex-1">
         {navItems.map(item => (
           <button 
             key={item.id}
             onClick={() => handleNavigate(item.id)}
             className={`
-              flex items-center gap-4 p-3 rounded-2xl glass-button whitespace-nowrap group
-              ${view === item.id ? 'bg-white/20 border-white/40 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : ''}
+              flex items-center gap-4 p-3 rounded-2xl glass-button whitespace-nowrap hover:text-teal-400 transition-colors
+              ${view === item.id ? 'bg-[var(--glass-bg)] border-teal-400/50 shadow-lg text-teal-400' : ''}
             `}
           >
             <item.icon size={24} className="shrink-0" />
-            <span className={`font-semibold tracking-wide transition-all duration-300 ${!isSidebarOpen ? 'lg:hidden lg:opacity-0 lg:group-hover:inline-flex lg:group-hover:opacity-100' : ''}`}>
+            <span className={`font-semibold tracking-wide transition-opacity duration-300 ${!isSidebarOpen ? 'lg:opacity-0 lg:hidden lg:group-hover:opacity-100 lg:group-hover:block' : ''}`}>
               {item.label}
             </span>
           </button>
@@ -46,4 +47,5 @@ export const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate })
     </aside>
   );
 };
+
 export default Sidebar;
