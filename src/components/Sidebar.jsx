@@ -1,7 +1,7 @@
 import React from 'react';
-import { X, Home, ShoppingBag, Layers, Moon, Sun } from 'lucide-react';
+import { X, Home, ShoppingBag, Layers, Moon, Sun, Shield } from 'lucide-react';
 
-const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, toggleTheme }) => {
+const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, toggleTheme, user }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'shirts', icon: Layers, label: 'Shirts' },
@@ -42,6 +42,22 @@ const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, t
             </span>
           </button>
         ))}
+
+        {/* Admin Button with Condition */}
+        {user?.role === 'admin' && (
+          <button 
+            onClick={() => handleNavigate('admin')}
+            className={`
+              flex items-center gap-4 p-3 rounded-2xl glass-button whitespace-nowrap hover:text-teal-400 transition-colors
+              ${view === 'admin' ? 'bg-[var(--glass-bg)] border-teal-400/50 shadow-lg text-teal-400' : ''}
+            `}
+          >
+            <Shield size={24} className="shrink-0 text-red-400" />
+            <span className={`font-semibold tracking-wide transition-opacity duration-300 ${!isSidebarOpen ? 'lg:opacity-0 lg:hidden lg:group-hover:opacity-100 lg:group-hover:block' : ''}`}>
+              Admin
+            </span>
+          </button>
+        )}
       </nav>
     </aside>
   );

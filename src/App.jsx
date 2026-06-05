@@ -182,8 +182,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
       )}
       
-      <Sidebar view={view} isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} handleNavigate={handleNavigate} />
-
+      <Sidebar view={view} isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} handleNavigate={handleNavigate} user={user} />
       <main className={`flex-1 ${isSidebarOpen ? 'lg:ml-64' : 'ml-0 lg:ml-20'} relative w-full flex flex-col min-h-screen transition-all duration-500`}>
         
         {/* FIXED TOP NAVBAR */}
@@ -221,11 +220,7 @@ export default function App() {
             {/* Auth / Profile Area */}
             {user ? (
               <div className="flex items-center gap-3">
-                {user.role === 'admin' && (
-                  <button onClick={() => handleNavigate('admin')} className="hidden sm:block text-xs font-bold text-teal-400 hover:text-[var(--text-main)] border border-teal-400/50 px-2 py-1 rounded-md">
-                    Admin
-                  </button>
-                )}
+                
                 <button onClick={() => handleNavigate('myorders')} className="hidden sm:flex text-sm font-bold text-[var(--text-muted)] hover:text-teal-400 items-center gap-1 transition-colors">
                    <Package size={18} /> My Orders
                 </button>
@@ -249,9 +244,6 @@ export default function App() {
         </header>
         <div className="h-20 sm:h-24"></div>
 
-        {/* ========================================== */}
-        {/* LOGOUT CONFIRMATION MODAL                  */}
-        {/* ========================================== */}
         {showLogoutConfirm && (
           <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="glass-panel p-6 sm:p-8 rounded-[2rem] max-w-sm w-full relative animate-in zoom-in duration-200 border border-[var(--glass-border)]">
@@ -279,9 +271,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ========================================== */}
-        {/* NAYA: Search Overlay Modal                 */}
-        {/* ========================================== */}
         {isSearchOpen && (
           <div className="fixed inset-0 z-[100] bg-[var(--bg-1)]/95 backdrop-blur-xl flex flex-col pt-20 px-4 sm:px-10 pb-10 overflow-hidden animate-in fade-in duration-200">
             {/* Close Button */}
@@ -378,15 +367,37 @@ export default function App() {
 
         {/* Global Premium Toast */}
         {toast.visible && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-            <div className="glass-panel flex items-center gap-3 px-6 py-3 rounded-full bg-[var(--glass-bg)] border border-teal-400 shadow-[0_10px_40px_rgba(45,212,191,0.2)] backdrop-blur-md">
-              <div className="bg-gradient-to-r from-teal-400 to-teal-300 text-slate-900 p-1.5 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4"><path fill="currentColor" d="M9 12l2 2 4-4"/></svg>
-              </div>
-              <span className="font-bold text-[var(--text-main)]"><span className="text-teal-400">{toast.item?.name}</span> added to cart!</span>
-            </div>
-          </div>
-        )}
+  <div 
+    className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none transition-all duration-500 ease-out"
+    style={{ 
+      animation: "slideDown 0.5s ease-out forwards" 
+    }}
+  >
+    {/* Inline Style for the animation to avoid external CSS files */}
+    <style>{`
+      @keyframes slideDown {
+        0% { opacity: 0; transform: translateY(-20px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
+
+    <div className="glass-panel flex items-center gap-3 px-5 py-3 rounded-full bg-[var(--glass-bg)] border border-teal-400/30 shadow-[0_10px_30px_rgba(0,0,0,0.3)] backdrop-blur-md pointer-events-auto">
+      
+      {/* Icon */}
+      <div className="bg-gradient-to-r from-teal-400 to-teal-300 text-slate-900 p-1.5 rounded-full shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      
+      {/* Text */}
+      <span className="font-bold text-[var(--text-main)] text-sm sm:text-base whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="text-teal-400">{toast.item?.name}</span> added to cart!
+      </span>
+      
+    </div>
+  </div>
+)}
       </main>
     </div>
   );
