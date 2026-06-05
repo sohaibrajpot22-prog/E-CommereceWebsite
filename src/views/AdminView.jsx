@@ -1,195 +1,364 @@
-import React, { useState } from 'react';
-import { Trash2, Plus, Edit2, Package, Layers, Shirt, Save, X, ClipboardList, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Package, Users, Settings, Clock, Truck, CheckCircle, Shield, User, Save, Loader2, Landmark } from 'lucide-react';
+import { dbFirestore, auth } from '../firebase';
+import { collection, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 
-const AdminView = ({ db, setDb }) => {
-  const [activeTab, setActiveTab] = useState('orders'); // Default tab orders
-  const [editingId, setEditingId] = useState(null);
-  const [expandedOrder, setExpandedOrder] = useState(null); // Kis order ki details kholi hain
-  
-  const [formData, setFormData] = useState({
-    name: '', price: '', image: '', description: '', 
-    quantity: 10, sizes: 'S,M,L,XL', colors: 'Blue,Navy,White'
-  });
+const AdminView = ({ user, setUser }) => {
+    const [activeTab, setActiveTab] = useState('orders');
+    
+    // States for Data
+    const [orders, setOrders] = useState([]);
+    const [usersList, setUsersList] = useState([]);
+    
+    // States for UI
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSavingStore, setIsSavingStore] = useState(false);
+    
+    // Profile Settings State
+    const [profileName, setProfileName] = useState(user?.name || '');
+    const [updateMsg, setUpdateMsg] = useState('');
 
-  // ORDER MANAGEMENT
-  const updateOrderStatus = (orderId, newStatus) => {
-    setDb(prev => ({
-      ...prev,
-      orders: prev.orders.map(order => order.id === orderId ? { ...order, status: newStatus } : order)
-    }));
-  };
-
-  // PRODUCT CRUD MANAGEMENT
-  const handleEdit = (item) => {
-    setEditingId(item.id);
-    setFormData({
-      name: item.name, price: item.price, image: item.image, description: item.description,
-      quantity: item.quantity, sizes: item.sizes?.join(',') || '', colors: item.colors?.map(c => c.name || c).join(',') || ''
+    // Store Payment Settings State
+    const [storeSettings, setStoreSettings] = useState({
+        bankName: "", accountTitle: "", accountNumber: "",
+        easyPaisa: "", jazzCash: "", advanceAmount: 250, disclaimer: ""
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    const [storeUpdateMsg, setStoreUpdateMsg] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newItem = {
-      id: editingId || Math.random().toString(36).substr(2, 9),
-      name: formData.name, price: formData.price, description: formData.description, image: formData.image,
-      quantity: parseInt(formData.quantity),
-      sizes: formData.sizes.split(',').map(s => s.trim()),
-      colors: formData.colors.split(',').map(c => c.trim())
+    // Fetch All Data (Orders, Users, Settings)
+    const fetchAdminData = async () => {
+        setIsLoading(true);
+        try {
+            // 1. Fetch Orders
+            if (activeTab === 'orders') {
+                const querySnapshot = await getDocs(collection(dbFirestore, "orders"));
+                const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                ordersData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setOrders(ordersData);
+            }
+            
+            // 2. Fetch Users
+            if (activeTab === 'users') {
+                const querySnapshot = await getDocs(collection(dbFirestore, "users"));
+                const usersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setUsersList(usersData);
+            }
+
+            // 3. Fetch Store Settings
+            if (activeTab === 'settings') {
+                const docRef = doc(dbFirestore, "settings", "storeDetails");
+                const docSnap = await getDoc(docRef);
+                if(docSnap.exists()) {
+                    setStoreSettings(docSnap.data());
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching admin data:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    if (editingId) {
-      setDb(prev => ({ ...prev, [activeTab]: prev[activeTab].map(item => item.id === editingId ? newItem : item) }));
-      setEditingId(null);
-    } else {
-      setDb(prev => ({ ...prev, [activeTab]: [...prev[activeTab], newItem] }));
-    }
-    setFormData({ name: '', price: '', image: '', description: '', quantity: 10, sizes: 'S,M,L,XL', colors: 'Blue,Navy,White' });
-  };
+    useEffect(() => {
+        fetchAdminData();
+    }, [activeTab]);
 
-  const handleDelete = (id) => {
-    setDb(prev => ({ ...prev, [activeTab]: prev[activeTab].filter(item => item.id !== id) }));
-  };
+    // Update Order Status
+    const updateOrderStatus = async (orderId, newStatus) => {
+        try {
+            await updateDoc(doc(dbFirestore, "orders", orderId), { status: newStatus });
+            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+        } catch (error) {
+            console.error("Error updating status:", error);
+            alert("Status update failed!");
+        }
+    };
 
-  return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full">
-      <div className="mb-8">
-        <h2 className="text-4xl font-black tracking-tight text-[var(--text-main)]">Admin Dashboard</h2>
-        <p className="text-[var(--text-muted)] mt-2">Manage Orders & Store Inventory</p>
-      </div>
+    // Update User Role (Make Admin/Customer)
+    const updateUserRole = async (userId, newRole) => {
+        try {
+            await updateDoc(doc(dbFirestore, "users", userId), { role: newRole });
+            setUsersList(usersList.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        } catch (error) {
+            console.error("Error updating role:", error);
+            alert("Role update failed!");
+        }
+    };
 
-      <div className="flex gap-2 bg-[var(--glass-bg)] p-1 rounded-2xl w-fit mb-8 border border-[var(--glass-border)] flex-wrap">
-        {[
-          { id: 'orders', icon: <ClipboardList size={18}/> },
-          { id: 'shirts', icon: <Shirt size={18}/> },
-          { id: 'pants', icon: <Package size={18}/> },
-          { id: 'combinations', icon: <Layers size={18}/> }
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold capitalize transition-all ${activeTab === tab.id ? 'bg-[var(--text-main)] text-[var(--bg-1)] shadow-lg' : 'text-[var(--text-muted)] hover:bg-white/5'}`}>
-            {tab.icon} <span className="hidden sm:inline">{tab.id}</span>
-          </button>
-        ))}
-      </div>
+    // Update Profile Settings
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setUpdateMsg('');
+        try {
+            if (auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: profileName });
+                await updateDoc(doc(dbFirestore, "users", auth.currentUser.uid), { name: profileName });
+                if (setUser) {
+                    setUser({ ...user, name: profileName });
+                }
+                setUpdateMsg('Profile updated successfully!');
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            setUpdateMsg('Error updating profile.');
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setUpdateMsg(''), 3000);
+        }
+    };
 
-      {activeTab === 'orders' ? (
-        <div className="glass-panel p-6 rounded-3xl space-y-4">
-          <h3 className="text-xl font-bold text-[var(--text-main)] mb-4">Recent Orders</h3>
-          <div className="space-y-4">
-            {(!db.orders || db.orders.length === 0) && <p className="text-[var(--text-muted)]">No orders placed yet.</p>}
+    // NAYA: Save Store Payment Details
+    const handleSaveStoreDetails = async (e) => {
+        e.preventDefault();
+        setIsSavingStore(true);
+        setStoreUpdateMsg('');
+        try {
+            await setDoc(doc(dbFirestore, "settings", "storeDetails"), storeSettings);
+            setStoreUpdateMsg('Store details updated successfully!');
+        } catch (error) {
+            console.error("Error saving store details:", error);
+            setStoreUpdateMsg('Error saving store details.');
+        } finally {
+            setIsSavingStore(false);
+            setTimeout(() => setStoreUpdateMsg(''), 3000);
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch(status) {
+            case 'Pending': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+            case 'Shipped': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+            case 'Delivered': return 'text-teal-400 bg-teal-400/10 border-teal-400/20';
+            default: return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+        }
+    };
+
+    return (
+        <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
             
-            {db.orders && db.orders.map(order => (
-              <div key={order.id} className="bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl overflow-hidden transition-all">
-                {/* Order Header */}
-                <div onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)} className="p-4 flex flex-wrap items-center justify-between cursor-pointer hover:bg-white/5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400 font-bold"><Package size={20}/></div>
-                    <div>
-                      <h4 className="font-bold text-[var(--text-main)]">{order.customer} <span className="text-[var(--text-muted)] text-xs ml-2 font-mono">{order.id}</span></h4>
-                      <p className="text-[var(--text-muted)] text-sm">{order.date} • {order.items.length} Items</p>
+            {/* Sidebar Menu */}
+            <div className="w-full md:w-64 shrink-0 flex flex-col gap-2">
+                <div className="glass-panel p-6 rounded-3xl mb-4 text-center border border-teal-500/30">
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-teal-400 to-blue-600 rounded-full flex items-center justify-center mb-3">
+                        <Shield size={30} className="text-white" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 sm:mt-0">
-                    <span className="font-bold text-[var(--text-main)]">${order.total}</span>
-                    <select 
-                        value={order.status} 
-                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full border-none focus:outline-none appearance-none cursor-pointer ${order.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-500' : order.status === 'Shipped' ? 'bg-blue-500/20 text-blue-500' : 'bg-green-500/20 text-green-500'}`}
-                      >
-                        <option value="Pending" className="bg-[var(--bg-2)] text-white">Pending</option>
-                        <option value="Shipped" className="bg-[var(--bg-2)] text-white">Shipped</option>
-                        <option value="Delivered" className="bg-[var(--bg-2)] text-white">Delivered</option>
-                    </select>
-                    {expandedOrder === order.id ? <ChevronUp size={20} className="text-[var(--text-muted)]"/> : <ChevronDown size={20} className="text-[var(--text-muted)]"/>}
-                  </div>
+                    <h2 className="font-bold text-xl text-[var(--text-main)]">{user?.name || 'Admin'}</h2>
+                    <p className="text-teal-400 text-sm font-medium">Administrator</p>
                 </div>
 
-                {/* Order Details (Sizes, Colors, Address) */}
-                {expandedOrder === order.id && (
-                  <div className="p-4 border-t border-[var(--glass-border)] bg-black/10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase tracking-wider">Ordered Items</p>
-                        <div className="space-y-3">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="flex gap-3 items-center">
-                              <img src={item.image} className="w-12 h-12 rounded-lg object-cover border border-[var(--glass-border)]" />
-                              <div>
-                                <p className="text-sm font-bold text-[var(--text-main)] line-clamp-1">{item.name}</p>
-                                <p className="text-xs text-teal-400 font-semibold">Size: {item.selectedSize} | Color: {item.selectedColor}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-xs font-bold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Shipping Details</p>
-                          <p className="text-sm text-[var(--text-main)]">{order.shippingAddress?.detail}, {order.shippingAddress?.city}</p>
-                          <p className="text-sm text-[var(--text-muted)] mt-1">Phone: <span className="text-teal-400">{order.shippingAddress?.phone}</span></p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-[var(--text-muted)] mb-1 uppercase tracking-wider">Payment Method</p>
-                          <p className="text-sm text-[var(--text-main)] capitalize font-semibold">{order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Transfer'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
-                <div className="space-y-4">
-                    {db[activeTab].map(item => (
-                    <div key={item.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between border border-[var(--glass-border)] hover:border-teal-400/30 transition-all">
-                        <div className="flex items-center gap-4">
-                        <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover" />
-                        <div>
-                            <p className="font-bold text-[var(--text-main)]">{item.name}</p>
-                            <p className="text-teal-400 text-sm font-bold">${item.price} • Stock: {item.quantity}</p>
-                        </div>
-                        </div>
-                        <div className="flex gap-2">
-                        <button onClick={() => handleEdit(item)} className="p-3 text-[var(--text-muted)] hover:text-blue-400 transition">
-                            <Edit2 size={20} />
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="p-3 text-[var(--text-muted)] hover:text-red-400 transition">
-                            <Trash2 size={20} />
-                        </button>
-                        </div>
-                    </div>
-                    ))}
-                </div>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="glass-panel p-6 rounded-3xl space-y-4 h-fit sticky top-24">
-                <h3 className="text-xl font-bold mb-4 text-[var(--text-main)]">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
-                <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Product Name" required />
-                <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Price ($)" required />
-                <input type="number" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Warehouse Quantity" required />
-                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400 h-24" placeholder="Product Description" required />
-                <input type="text" value={formData.sizes} onChange={e => setFormData({...formData, sizes: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Sizes (Comma separated: S,M,L)" />
-                <input type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Colors (Comma separated: Blue,Navy)" />
-                <input type="text" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full bg-[var(--bg-2)] border border-[var(--glass-border)] rounded-xl p-4 text-[var(--text-main)] focus:outline-none focus:border-teal-400" placeholder="Image URL" required />
-                
-                <button type="submit" className="w-full bg-teal-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-teal-400 transition shadow-lg shadow-teal-500/30">
-                    {editingId ? <Save size={20} /> : <Plus size={20} />} {editingId ? 'Save Changes' : 'Add Item'}
+                <button 
+                    onClick={() => setActiveTab('orders')} 
+                    className={`flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'orders' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'glass-panel text-[var(--text-muted)] hover:text-teal-400'}`}
+                >
+                    <Package size={20} /> Order Management
                 </button>
-                {editingId && (
-                    <button type="button" onClick={() => setEditingId(null)} className="w-full bg-gray-500/20 text-[var(--text-main)] py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-500/40">
-                    <X size={20} /> Cancel
-                    </button>
+                <button 
+                    onClick={() => setActiveTab('users')} 
+                    className={`flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'users' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'glass-panel text-[var(--text-muted)] hover:text-teal-400'}`}
+                >
+                    <Users size={20} /> User Accounts
+                </button>
+                <button 
+                    onClick={() => setActiveTab('settings')} 
+                    className={`flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold ${activeTab === 'settings' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/30' : 'glass-panel text-[var(--text-muted)] hover:text-teal-400'}`}
+                >
+                    <Settings size={20} /> General Settings
+                </button>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 glass-panel p-6 sm:p-8 rounded-[2.5rem] border border-[var(--glass-border)] min-h-[60vh]">
+                
+                {isLoading ? (
+                    <div className="h-full w-full flex flex-col items-center justify-center text-teal-400 gap-4 mt-20">
+                        <Loader2 size={40} className="animate-spin" />
+                        <p className="font-bold">Loading data...</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* --- ORDERS TAB --- */}
+                        {activeTab === 'orders' && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] mb-6">Recent Orders</h2>
+                                {orders.length === 0 ? (
+                                    <div className="text-center text-[var(--text-muted)] py-10">No orders found.</div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {orders.map(order => (
+                                            <div key={order.id} className="bg-black/20 border border-white/10 p-5 rounded-2xl flex flex-col lg:flex-row gap-6 justify-between lg:items-center hover:border-teal-400/30 transition-colors">
+                                                <div className="space-y-2 flex-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <h3 className="font-bold text-lg text-[var(--text-main)]">{order.customerInfo?.fullName}</h3>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${getStatusColor(order.status)}`}>
+                                                            {order.status === 'Pending' && <Clock size={12} />}
+                                                            {order.status === 'Shipped' && <Truck size={12} />}
+                                                            {order.status === 'Delivered' && <CheckCircle size={12} />}
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[var(--text-muted)] text-sm">{order.customerInfo?.phone} • {order.customerInfo?.city}</p>
+                                                    
+                                                    {/* Ordered Items Summary */}
+                                                    <div className="mt-3 bg-black/40 rounded-xl p-3 border border-white/5 text-sm">
+                                                        <p className="font-bold text-teal-400 mb-2 border-b border-white/10 pb-1">Ordered Items ({order.items?.length}):</p>
+                                                        {order.items?.map((item, idx) => (
+                                                            <div key={idx} className="flex justify-between items-center py-1">
+                                                                <span className="text-[var(--text-main)] truncate max-w-[200px]">{item.name}</span>
+                                                                <span className="text-[var(--text-muted)] ml-2 text-xs">Size: {item.selectedSize} | Color: {item.selectedColor?.name || item.selectedColor} | Qty: {item.cartQuantity || 1}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="text-teal-400 font-bold mt-2">Total: RS {order.totalAmount} • {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Bank Transfer'}</div>
+                                                </div>
+                                                
+                                                <div className="flex flex-wrap gap-2 shrink-0">
+                                                    <button onClick={() => updateOrderStatus(order.id, 'Pending')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-colors ${order.status === 'Pending' ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/50' : 'border-white/10 text-[var(--text-muted)] hover:border-yellow-400/50'}`}>Pending</button>
+                                                    <button onClick={() => updateOrderStatus(order.id, 'Shipped')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-colors ${order.status === 'Shipped' ? 'bg-blue-400/20 text-blue-400 border-blue-400/50' : 'border-white/10 text-[var(--text-muted)] hover:border-blue-400/50'}`}>Shipped</button>
+                                                    <button onClick={() => updateOrderStatus(order.id, 'Delivered')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-colors ${order.status === 'Delivered' ? 'bg-teal-400/20 text-teal-400 border-teal-400/50' : 'border-white/10 text-[var(--text-muted)] hover:border-teal-400/50'}`}>Delivered</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* --- USERS TAB --- */}
+                        {activeTab === 'users' && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] mb-6">User Accounts</h2>
+                                {usersList.length === 0 ? (
+                                    <div className="text-center text-[var(--text-muted)] py-10">No users found.</div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {usersList.map(u => (
+                                            <div key={u.id} className="bg-black/20 border border-white/10 p-5 rounded-2xl flex flex-col gap-4 hover:border-teal-400/30 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center text-teal-400 border border-white/10">
+                                                        <User size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-[var(--text-main)]">{u.name || 'Unknown User'}</h3>
+                                                        <p className="text-xs text-[var(--text-muted)]">{u.email}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
+                                                    <span className="text-sm text-[var(--text-muted)]">Account Role:</span>
+                                                    <select 
+                                                        value={u.role || 'customer'} 
+                                                        onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                                        className={`bg-black/40 border outline-none text-sm font-bold px-3 py-1.5 rounded-lg cursor-pointer ${u.role === 'admin' ? 'text-teal-400 border-teal-400/50' : 'text-white border-white/20'}`}
+                                                    >
+                                                        <option value="customer" className="text-black">Customer</option>
+                                                        <option value="admin" className="text-black">Admin</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* --- SETTINGS TAB --- */}
+                        {activeTab === 'settings' && (
+                            <div className="space-y-10 max-w-2xl">
+                                
+                                {/* 1. Personal Profile Settings */}
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)]">Profile Settings</h2>
+                                    <form onSubmit={handleUpdateProfile} className="space-y-5 bg-black/20 p-6 rounded-3xl border border-white/10">
+                                        {updateMsg && (
+                                            <div className="bg-teal-500/10 border border-teal-500/50 text-teal-400 px-4 py-3 rounded-xl text-sm font-medium">
+                                                {updateMsg}
+                                            </div>
+                                        )}
+                                        
+                                        <div>
+                                            <label className="block text-sm font-bold text-[var(--text-muted)] mb-2">Display Name</label>
+                                            <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 focus-within:border-teal-400 transition-colors">
+                                                <User size={20} className="text-teal-400" />
+                                                <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="bg-transparent border-none outline-none text-[var(--text-main)] w-full" required />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-bold text-[var(--text-muted)] mb-2">Email Address (Read Only)</label>
+                                            <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-4 py-3 opacity-70 cursor-not-allowed">
+                                                <input type="email" value={user?.email || ''} disabled className="bg-transparent border-none outline-none text-[var(--text-muted)] w-full cursor-not-allowed" />
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" disabled={isSaving} className="w-full sm:w-auto mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-teal-400 text-slate-900 font-extrabold flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(45,212,191,0.4)] transition-all disabled:opacity-50">
+                                            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 
+                                            {isSaving ? 'Saving...' : 'Save Profile'}
+                                        </button>
+                                    </form>
+                                </div>
+
+                                {/* 2. Store Payment Settings (NAYA) */}
+                                <div className="space-y-6 pt-6 border-t border-[var(--glass-border)]">
+                                    <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] flex items-center gap-3">
+                                        <Landmark size={28} className="text-teal-400" /> Payment & Store Details
+                                    </h2>
+                                    <p className="text-[var(--text-muted)] text-sm mb-4">These details will be displayed to customers on the Checkout page.</p>
+
+                                    <form onSubmit={handleSaveStoreDetails} className="space-y-4 bg-teal-500/5 p-6 rounded-3xl border border-teal-500/20">
+                                        {storeUpdateMsg && (
+                                            <div className="bg-teal-500/10 border border-teal-500/50 text-teal-400 px-4 py-3 rounded-xl text-sm font-medium">
+                                                {storeUpdateMsg}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">Bank Name</label>
+                                                <input type="text" value={storeSettings.bankName} onChange={e => setStoreSettings({...storeSettings, bankName: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="e.g. Meezan Bank" required />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">Account Title</label>
+                                                <input type="text" value={storeSettings.accountTitle} onChange={e => setStoreSettings({...storeSettings, accountTitle: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="e.g. Glass Apparel" required />
+                                            </div>
+                                            <div className="space-y-1 md:col-span-2">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">Account Number (IBAN)</label>
+                                                <input type="text" value={storeSettings.accountNumber} onChange={e => setStoreSettings({...storeSettings, accountNumber: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="PK00 MEZN 0000..." required />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">EasyPaisa Details</label>
+                                                <input type="text" value={storeSettings.easyPaisa} onChange={e => setStoreSettings({...storeSettings, easyPaisa: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="0300 0000000 (Title)" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">JazzCash Details</label>
+                                                <input type="text" value={storeSettings.jazzCash} onChange={e => setStoreSettings({...storeSettings, jazzCash: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="0300 0000000 (Title)" />
+                                            </div>
+                                            <div className="space-y-1 md:col-span-2">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">COD Advance Amount (RS)</label>
+                                                <input type="number" value={storeSettings.advanceAmount} onChange={e => setStoreSettings({...storeSettings, advanceAmount: Number(e.target.value)})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)]" placeholder="250" required />
+                                            </div>
+                                            <div className="space-y-1 md:col-span-2">
+                                                <label className="text-xs font-bold text-[var(--text-muted)]">Checkout Disclaimer Notice</label>
+                                                <textarea rows="2" value={storeSettings.disclaimer} onChange={e => setStoreSettings({...storeSettings, disclaimer: e.target.value})} className="w-full bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-400 text-[var(--text-main)] resize-none" placeholder="Notice displayed to customers..." required />
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" disabled={isSavingStore} className="w-full mt-4 px-6 py-3 rounded-xl bg-[var(--text-main)] text-[var(--bg-1)] font-extrabold flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50">
+                                            {isSavingStore ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} 
+                                            {isSavingStore ? 'Saving...' : 'Save Store Details'}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
-            </form>
+            </div>
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default AdminView;

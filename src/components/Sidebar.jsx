@@ -6,8 +6,7 @@ const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, t
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'shirts', icon: Layers, label: 'Shirts' },
     { id: 'pants', icon: Layers, label: 'Pants' },
-    { id: 'combinations', icon: ShoppingBag, label: 'Pairs' },
-    { id: 'cart', icon: ShoppingBag, label: 'Cart' },
+    { id: 'combinations', icon: ShoppingBag, label: 'Pairs' }
   ];
 
   return (
@@ -20,7 +19,7 @@ const Sidebar = ({ view, isSidebarOpen, setSidebarOpen, handleNavigate, theme, t
     `}>
       <div className="flex items-center justify-between px-6 mb-12">
         <div className={`font-bold text-2xl tracking-wider truncate transition-opacity duration-300 ${!isSidebarOpen ? 'lg:opacity-0 lg:hidden lg:group-hover:opacity-100 lg:group-hover:block' : ''}`}>
-          GLASS
+          VINTAGE
         </div>
         <button className="lg:hidden hover:text-teal-400 transition-colors" onClick={() => setSidebarOpen(false)}>
           <X size={24} />
